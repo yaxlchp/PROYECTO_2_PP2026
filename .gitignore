@@ -1,0 +1,23 @@
+# Visual Studio temp
+.vs/
+*.VC.db
+*.VC.opendb
+*.suo
+*.user
+
+# Build folders (en cualquier nivel)
+**/Debug/
+**/Release/
+**/x64/
+**/x86/
+**/ipch/
+
+# Binarios/temporales
+*.obj
+*.pch
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.log
