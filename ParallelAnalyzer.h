@@ -30,8 +30,7 @@ namespace airport
             std::vector<GroupResult> calculateByDepartureBlock(
                 const FlightDataSet& dataSet) const;
 
-            std::vector<GroupResult> calculateByCarrier(
-                const FlightDataSet& dataSet) const;
+            std::vector<GroupResult> calculateByCarrier() const;
 
             std::vector<GroupResult> calculateByAirport(
                 const FlightDataSet& dataSet) const;
@@ -43,6 +42,3 @@ namespace airport
         };
     }
 }
-
-
-

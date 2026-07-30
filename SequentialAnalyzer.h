@@ -12,8 +12,6 @@ namespace airport
         class SequentialAnalyzer
         {
         public:
-
-            SequentialAnalyzer();
             ~SequentialAnalyzer();
 
             GeneralStatistics calculateGeneralStatistics(
@@ -39,6 +37,3 @@ namespace airport
         };
     }
 }
-
-
-
