@@ -317,7 +317,7 @@ namespace airport
                 {
                     result =
                         parallelAnalyzer->
-                        calculateFactorAnalysis();
+                        calculateFactorAnalysis(*dataSet);
                 }
                 else
                 {

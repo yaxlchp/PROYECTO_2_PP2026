@@ -57,12 +57,61 @@ namespace airport
 
         void ParallelAnalyzer::setThreadCount(int value)
         {
-            threadCount = value;
+            if (value > 0)
+            {
+                threadCount = value;
+            }
+            else
+            {
+                threadCount = omp_get_max_threads();
+            }
         }
 
         int ParallelAnalyzer::getThreadCount() const
         {
             return threadCount;
+        }
+
+        GeneralStatistics ParallelAnalyzer::calculateGeneralStatistics(
+            const FlightDataSet& dataSet) const
+        {
+			return GeneralStatistics();
+        }
+
+        std::vector<GroupResult> ParallelAnalyzer::calculateByMonth(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(12);
+        }
+
+        std::vector<GroupResult> ParallelAnalyzer::calculateByDayOfWeek(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(7);
+        }
+
+        std::vector<GroupResult> ParallelAnalyzer::calculateByDepartureBlock(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(dataSet.getMaxDepartureBlockId() + 1);
+        }
+
+        std::vector<GroupResult> ParallelAnalyzer::calculateByCarrier(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(dataSet.getMaxCarrierId() + 1);
+        }
+
+        std::vector<GroupResult> ParallelAnalyzer::calculateByAirport(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(dataSet.getMaxAirportId() + 1);
+        }
+
+        FactorAnalysis ParallelAnalyzer::calculateFactorAnalysis(
+            const FlightDataSet& dataSet) const
+        {
+			return FactorAnalysis();
         }
     }
 

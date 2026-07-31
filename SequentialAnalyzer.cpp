@@ -46,5 +46,48 @@ namespace airport
         {
         }
 
+        GeneralStatistics SequentialAnalyzer::calculateGeneralStatistics(
+            const FlightDataSet& dataSet) const
+        {
+			return GeneralStatistics();
+        }
+
+        std::vector<GroupResult> SequentialAnalyzer::calculateByMonth(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(12);
+        }
+
+        std::vector<GroupResult> SequentialAnalyzer::calculateByDayOfWeek(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(7);
+        }
+
+        std::vector<GroupResult> SequentialAnalyzer::calculateByDepartureBlock(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(dataSet.getMaxDepartureBlockId() + 1);
+        }
+
+        std::vector<GroupResult> SequentialAnalyzer::calculateByCarrier(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(dataSet.getMaxCarrierId() + 1);
+        }
+
+        std::vector<GroupResult> SequentialAnalyzer::calculateByAirport(
+            const FlightDataSet& dataSet) const
+        {
+			return std::vector<GroupResult>(dataSet.getMaxAirportId() + 1);
+        }
+
+
+        FactorAnalysis SequentialAnalyzer::calculateFactorAnalysis(
+            const FlightDataSet& dataSet) const
+        {
+			return FactorAnalysis();
+        }
+
     }
 }
