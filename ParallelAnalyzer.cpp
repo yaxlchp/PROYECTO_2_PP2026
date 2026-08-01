@@ -75,7 +75,89 @@ namespace airport
         GeneralStatistics ParallelAnalyzer::calculateGeneralStatistics(
             const FlightDataSet& dataSet) const
         {
-			return GeneralStatistics();
+                if (dataSet.isEmpty())
+                {
+                    throw exceptions::EmptyDataSetException();
+                }
+
+                const std::vector<FlightRecord>& records = dataSet.getRecords();
+                const long long n = (long long)records.size();
+
+                long long delayedFlights = 0;
+                double concurrentSum = 0.0;
+                double seatesSum = 0.0;
+                double planeAgeSum = 0.0;
+                long long validPlaneAgeCount = 0;
+                double precipitationSum = 0.0;
+                double snowSum = 0.0;
+                double snowDepthSum = 0.0;
+                double temperatureSum = 0.0;
+                double windSum = 0.0;
+                int minAge = std::numeric_limits<int>::max();
+                int maxAge = std::numeric_limits<int>::min();
+
+    #pragma omp parallel for num_threads(threadCount) schedule(static) reduction(+:delayedFlights, concurrentSum, seatsSum, planeAgeSum, validPlaneAgeCount, precipitationSum, snowSum, snowDepthSum, temperatureSum, windSum) reduction (min:minAge) reduction(max:maxAge)
+
+                for (long long i = 0; i < n; i++)
+                {
+                    const FlightRecord& r = records[i];
+
+                    if (r.delayedOver15Minutes > 0)
+                    {
+                        delayedFlights++;
+                    }
+
+                    concurrentSum += r.concurrentFlights;
+                    seatesSum += r.numberOfSeats;
+                    precipitationSum += r.precipitation;
+                    snowSum += r.snow;
+                    snowDepthSum += r.snowDepth;
+                    temperatureSum += r.maximumTemperature;
+                    windSum += r.averageWindSpeed;
+
+                    if (r.planeAge != -1)
+                    {
+                        planeAgeSum += r.planeAge;
+                        validPlaneAgeCount++;
+
+                        if (r.planeAge < minAge)
+                        {
+                            minAge = r.planeAge;
+                        }
+
+                        if (r.planeAge > maxAge)
+                        {
+                            maxAge = r.planeAge;
+                        }
+                    }
+                }
+
+                GeneralStatistics stats;
+                stats.totalFlights = n;
+                stats.delayedFlights = delayedFlights;
+                stats.delayRatePercent = ((double)delayedFlights / (double)n) * 100.0;
+                stats.averageConcurrentFlights = concurrentSum / (double)n;
+                stats.averageSeats = seatesSum / (double)n;
+                stats.averagePrecipitation = precipitationSum / (double)n;
+                stats.averageSnow = snowSum / (double)n;
+                stats.averageSnowDepth = snowDepthSum / (double)n;
+                stats.averageTemperature = temperatureSum / (double)n;
+                stats.averageWindSpeed = windSum / (double)n;
+
+                if (validPlaneAgeCount > 0)
+                {
+                    stats.averagePlaneAge = planeAgeSum / (double)validPlaneAgeCount;
+                    stats.minimumPlaneAge = minAge;
+                    stats.maximumPlaneAge = maxAge;
+                }
+                else
+                {
+                    stats.averagePlaneAge = 0.0;
+                    stats.minimumPlaneAge = -1;
+                    stats.maximumPlaneAge = -1;
+                }
+
+			return stats;
         }
 
         std::vector<GroupResult> ParallelAnalyzer::calculateByMonth(
