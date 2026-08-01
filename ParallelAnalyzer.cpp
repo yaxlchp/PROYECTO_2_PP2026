@@ -136,7 +136,7 @@ namespace airport
             //Aquí empieza la parte paralela.
             //Cada hilo revisa una parte de los vuelos.
             //Cada hilo guarda sus resultados por separado, así no se mezclan los datos entre hilos.
- 
+
 #pragma omp parallel num_threads(threads)
             {
                 // Saber qué número de hilo está trabajando
@@ -196,7 +196,7 @@ namespace airport
                     }
                 }
             }
-            
+
             //En esta parte se juntan los resultados de todos los hilos.
             // Se combinan los hilos en un solo lugar.
 

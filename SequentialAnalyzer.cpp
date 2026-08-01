@@ -220,7 +220,7 @@ namespace airport
                 results[carrierId] = result;
             }
 
-             //Crear ranking de retrasos
+            //Crear ranking de retrasos
 
             std::vector<GroupResult> ranking = results;
 
