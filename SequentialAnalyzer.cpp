@@ -85,18 +85,18 @@ namespace airport
 
                 accumulator.total++;
 
-                if (flight.delayed != 0)
+                if (flight.delayedOver15Minutes != 0)
                 {
                     accumulator.delayed++;
                 }
 
                 accumulator.concurrentSum += flight.concurrentFlights;
-                accumulator.seatsSum += flight.seats;
+                accumulator.seatsSum += flight.numberOfSeats;
                 accumulator.precipitationSum += flight.precipitation;
                 accumulator.snowSum += flight.snow;
                 accumulator.snowDepthSum += flight.snowDepth;
-                accumulator.temperatureSum += flight.temperature;
-                accumulator.windSum += flight.windSpeed;
+                accumulator.temperatureSum += flight.maximumTemperature;
+                accumulator.windSum += flight.averageWindSpeed;
 
                 if (flight.planeAge >= 0)
                 {
