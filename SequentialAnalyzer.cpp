@@ -55,7 +55,56 @@ namespace airport
         std::vector<GroupResult> SequentialAnalyzer::calculateByMonth(
             const FlightDataSet& dataSet) const
         {
-			return std::vector<GroupResult>(12);
+            std::vector<GroupResult> result(12);
+            std::vector<GroupAccumulator> accum(12);
+
+            std::string monthName[12] =
+            {
+                "January", "February", "March", "April",
+                "May", "June", "July", "August",
+                "September", "October", "November", "December"
+            };
+
+            for (int i = 0; i < 12; i++)
+            {
+                result[i].name = monthName[i];
+            }
+
+            int n = dataSet.getRecordCount();
+            const std::vector<FlightRecord>& records = dataSet.getRecords();
+            
+            for (int i = 0; i < n; i++)
+            {
+                const FlightRecord& record = records[i];
+                GroupAccumulator& month = accum[record.month - 1];
+
+                month.total++;
+                if (record.delayedOver15Minutes) month.delayed++;
+                month.concurrentSum += record.concurrentFlights;
+                if (record.planeAge>=0 && record.planeAge <= 100)
+                {
+                    month.planeAgeSum += record.planeAge;
+                    month.validPlaneAgeCount++;
+                }
+                month.temperatureSum += record.maximumTemperature;
+                month.windSum += record.averageWindSpeed;
+            }
+
+            for (int i = 0; i < 12; i++)
+            {
+                result[i].id = i + 1;
+                result[i].totalFlights = accum[i].total;
+                result[i].delayedFlights = accum[i].delayed;
+                if (accum[i].total > 0)
+                {
+                    result[i].delayRatePercent = 100.0 * accum[i].delayed / accum[i].total ;
+                    result[i].averageConcurrentFlights = accum[i].concurrentSum / accum[i].total;
+                    if (accum[i].validPlaneAgeCount>0) result[i].averagePlaneAge = accum[i].planeAgeSum / accum[i].validPlaneAgeCount;
+                    result[i].averageTemperature = accum[i].temperatureSum / accum[i].total;
+                    result[i].averageWindSpeed = accum[i].windSum / accum[i].total;
+                }
+            }
+			return result;
         }
 
         std::vector<GroupResult> SequentialAnalyzer::calculateByDayOfWeek(
