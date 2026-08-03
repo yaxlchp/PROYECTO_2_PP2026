@@ -73,180 +73,100 @@ namespace airport
         std::vector<GroupResult> SequentialAnalyzer::calculateByCarrier(
             const FlightDataSet& dataSet) const
         {
-            // Obtener el ID máximo de aerolínea
+            // Obtener el ID más grande de aerolínea presente en el conjunto de datos
             int maxCarrier = dataSet.getMaxCarrierId();
 
-            // Guardar datos temporales de cada aerolínea
+            // Crear un acumulador para cada aerolínea
+            // La posición del vector coincide con el ID de la aerolínea
             std::vector<GroupAccumulator> accumulators(maxCarrier + 1);
 
-            // Obtener todos los vuelos
-            const std::vector<FlightRecord>& records = dataSet.getRecords();
+            // Obtener todos los registros de vuelos
+            const std::vector<FlightRecord>& records =
+                dataSet.getRecords();
 
-            // Revisar todos los vuelos
+            // Recorrer todos los vuelos uno por uno
             for (int i = 0; i < records.size(); i++)
             {
-                // Obtener ID de la aerolínea
                 int carrierId = records[i].carrierId;
 
-                // Ignorar datos incorrectos
+                // Ignorar IDs inválidos
                 if (carrierId < 0 || carrierId > maxCarrier)
                 {
                     continue;
                 }
 
-                // Contar vuelos
+                // Contar vuelo para la aerolínea correspondiente
                 accumulators[carrierId].total++;
 
-                // Contar retrasos
+                // Contar retrasos mayores a 15 minutos
                 if (records[i].delayedOver15Minutes != 0)
                 {
                     accumulators[carrierId].delayed++;
                 }
-
-                // Sumar datos para promedios
-                accumulators[carrierId].concurrentSum +=
-                    records[i].concurrentFlights;
-
-
-                accumulators[carrierId].temperatureSum +=
-                    records[i].maximumTemperature;
-
-
-                accumulators[carrierId].windSum +=
-                    records[i].averageWindSpeed;
-
-
-                // Guardar edad del avión
-                if (records[i].planeAge >= 0)
-                {
-                    accumulators[carrierId].planeAgeSum +=
-                        records[i].planeAge;
-
-
-                    accumulators[carrierId].validPlaneAgeCount++;
-                }
             }
 
-            int minimumVolume = 30;
+            // Umbral mínimo para considerar representativa la muestra
+            const int minimumVolume = 30;
 
-            // Vector final donde la posición coincide con el ID
-            std::vector<GroupResult> results(maxCarrier + 1);
+            std::vector<GroupResult> results;
 
-            // Crear resultados
-            for (int carrierId = 0; carrierId <= maxCarrier; carrierId++)
+            // Construir resultado final para cada aerolínea
+            for (int carrierId = 0;
+                carrierId <= maxCarrier;
+                carrierId++)
             {
-                GroupAccumulator accumulator = accumulators[carrierId];
-
+                // Ignorar aerolíneas sin vuelos
+                if (accumulators[carrierId].total == 0)
+                {
+                    continue;
+                }
 
                 GroupResult result;
-
-
 
                 // Guardar ID
                 result.id = carrierId;
 
-                // Crear nombre
-                if (accumulator.total == 0)
+                // Crear nombre básico usando el ID
+                result.name =
+                    "Aerolinea " +
+                    std::to_string(carrierId);
+
+                // Advertir cuando existen pocos vuelos
+                if (accumulators[carrierId].total <
+                    minimumVolume)
                 {
-                    result.name = "";
-                }
-                else
-                {
-                    result.name =
-                        "Aerolinea " + std::to_string(carrierId);
-
-
-
-                    if (accumulator.total < minimumVolume)
-                    {
-                        result.name += " (poco volumen)";
-                    }
+                    result.name +=
+                        " (poco volumen)";
                 }
 
+                // Guardar estadísticas básicas
+                result.totalFlights =
+                    accumulators[carrierId].total;
 
-                // Guardar cantidades
-                result.totalFlights = accumulator.total;
+                result.delayedFlights =
+                    accumulators[carrierId].delayed;
 
-                result.delayedFlights = accumulator.delayed;
+                // Calcular porcentaje de retrasos
+                result.delayRatePercent =
+                    (accumulators[carrierId].delayed * 100.0)
+                    /
+                    accumulators[carrierId].total;
 
-
-                // Calcular valores
-                if (accumulator.total > 0)
-                {
-                    result.delayRatePercent =
-                        (accumulator.delayed * 100.0) /
-                        accumulator.total;
-
-
-                    result.averageConcurrentFlights =
-                        accumulator.concurrentSum /
-                        accumulator.total;
-
-
-                    result.averageTemperature =
-                        accumulator.temperatureSum /
-                        accumulator.total;
-
-
-                    result.averageWindSpeed =
-                        accumulator.windSum /
-                        accumulator.total;
-                }
-
-                else
-                {
-                    result.delayRatePercent = 0;
-
-                    result.averageConcurrentFlights = 0;
-
-                    result.averageTemperature = 0;
-
-                    result.averageWindSpeed = 0;
-                }
-
-                // Promedio de edad
-                if (accumulator.validPlaneAgeCount > 0)
-                {
-                    result.averagePlaneAge =
-                        accumulator.planeAgeSum /
-                        accumulator.validPlaneAgeCount;
-                }
-                else
-                {
-                    result.averagePlaneAge = 0;
-                }
-
-                // Guardar usando el ID como posición
-                results[carrierId] = result;
+                results.push_back(result);
             }
-
-            //Crear ranking de retrasos
-
-            std::vector<GroupResult> ranking = results;
 
             // Ordenar de mayor a menor tasa de retraso
-            for (int i = 0; i < ranking.size(); i++)
-            {
-                for (int j = i + 1; j < ranking.size(); j++)
+            std::sort(
+                results.begin(),
+                results.end(),
+                [](const GroupResult& a,
+                    const GroupResult& b)
                 {
-                    if (ranking[j].delayRatePercent >
-                        ranking[i].delayRatePercent)
-                    {
-                        GroupResult temporary = ranking[i];
+                    return a.delayRatePercent >
+                        b.delayRatePercent;
+                });
 
-
-                        ranking[i] = ranking[j];
-
-
-                        ranking[j] = temporary;
-                    }
-                }
-            }
-
-            // Aquí ranking contiene el orden de mayor retraso
-            // Ejemplo:
-            // ranking[0] = aerolínea con más retrasos
-            // ranking[1] = segunda con más retrasos
+            // Regresar ranking final
             return results;
         }
 

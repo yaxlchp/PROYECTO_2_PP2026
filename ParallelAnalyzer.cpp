@@ -99,17 +99,18 @@ namespace airport
         std::vector<GroupResult> ParallelAnalyzer::calculateByCarrier(
             const FlightDataSet& dataSet) const
         {
-            // Obtener la cantidad máxima de aerolíneas que existen
-            int maxCarrier = dataSet.getMaxCarrierId();
+            // Obtener ID máximo de aerolínea
+            int maxCarrier =
+                dataSet.getMaxCarrierId();
 
-            // Obtener todos los vuelos que vamos a analizar
-            const std::vector<FlightRecord>& records = dataSet.getRecords();
+            // Obtener todos los vuelos
+            const std::vector<FlightRecord>& records =
+                dataSet.getRecords();
 
-            // Guardar la cantidad total de vuelos
-            int recordCount = records.size();
+            int recordCount =
+                records.size();
 
-            // Revisar cuántos hilos se van a utilizar
-            // Si no se recibe una cantidad, se usa la cantidad máxima disponible
+            // Determinar cuántos hilos se utilizarán
             int threads;
 
             if (threadCount > 0)
@@ -121,230 +122,141 @@ namespace airport
                 threads = omp_get_max_threads();
             }
 
-            // Crear un acumulador para cada hilo
-            // Cada hilo tendrá sus propios datos para evitar problemas cuando varios hilos intenten modificar el mismo valor
-            std::vector<std::vector<GroupAccumulator>> localAccumulators;
+            // Crear acumuladores independientes para cada hilo
+            // Esto evita race conditions
+            std::vector<
+                std::vector<GroupAccumulator>
+            > localAccumulators(threads);
 
-            localAccumulators.resize(threads);
-
-            // Crear espacio para guardar las aerolíneas dentro de cada hilo
             for (int i = 0; i < threads; i++)
             {
-                localAccumulators[i].resize(maxCarrier + 1);
+                localAccumulators[i].resize(
+                    maxCarrier + 1);
             }
 
-            //Aquí empieza la parte paralela.
-            //Cada hilo revisa una parte de los vuelos.
-            //Cada hilo guarda sus resultados por separado, así no se mezclan los datos entre hilos.
-
+            // Región paralela
 #pragma omp parallel num_threads(threads)
             {
-                // Saber qué número de hilo está trabajando
-                int threadId = omp_get_thread_num();
+                // Identificar hilo actual
+                int threadId =
+                    omp_get_thread_num();
 
-
-
-                // Este hilo trabaja solamente con su propio acumulador
+                // Obtener acumulador privado del hilo
                 std::vector<GroupAccumulator>& local =
                     localAccumulators[threadId];
 
-                // OpenMP reparte los vuelos entre los diferentes hilos
+                // Repartir los vuelos entre los hilos
 #pragma omp for schedule(static)
-                for (int i = 0; i < recordCount; i++)
+                for (int i = 0;
+                    i < recordCount;
+                    i++)
                 {
-                    // Guardar el vuelo actual
-                    const FlightRecord& record = records[i];
+                    int carrierId =
+                        records[i].carrierId;
 
-                    // Obtener la aerolínea del vuelo
-                    int carrierId = record.carrierId;
-
-                    // Si la aerolínea no existe, se ignora este vuelo
-                    if (carrierId < 0 || carrierId > maxCarrier)
+                    // Ignorar IDs inválidos
+                    if (carrierId < 0 ||
+                        carrierId > maxCarrier)
                     {
                         continue;
                     }
 
-                    // Aumentar el número de vuelos de la aerolínea
+                    // Contar vuelo
                     local[carrierId].total++;
 
-                    // Revisar si el vuelo tuvo retraso
-                    if (record.delayedOver15Minutes != 0)
+                    // Contar retraso
+                    if (records[i].delayedOver15Minutes != 0)
                     {
                         local[carrierId].delayed++;
                     }
-
-                    // Guardar datos que después se usarán para calcular promedios
-                    local[carrierId].concurrentSum +=
-                        record.concurrentFlights;
-
-
-                    local[carrierId].temperatureSum +=
-                        record.maximumTemperature;
-
-
-                    local[carrierId].windSum +=
-                        record.averageWindSpeed;
-
-                    // Guardar la edad del avión si tiene un valor válido
-                    if (record.planeAge >= 0)
-                    {
-                        local[carrierId].planeAgeSum +=
-                            record.planeAge;
-
-
-                        local[carrierId].validPlaneAgeCount++;
-                    }
                 }
             }
 
-            //En esta parte se juntan los resultados de todos los hilos.
-            // Se combinan los hilos en un solo lugar.
+            // Acumulador global donde se unirán los resultados de todos los hilos
+            std::vector<GroupAccumulator>
+                global(maxCarrier + 1);
 
-            std::vector<GroupAccumulator> global(maxCarrier + 1);
-
-            for (int thread = 0; thread < threads; thread++)
+            // Reducción manual de resultados
+            for (int thread = 0;
+                thread < threads;
+                thread++)
             {
-                for (int carrierId = 0; carrierId <= maxCarrier; carrierId++)
+                for (int carrierId = 0;
+                    carrierId <= maxCarrier;
+                    carrierId++)
                 {
-                    // Obtener los datos guardados por este hilo
-                    GroupAccumulator local =
-                        localAccumulators[thread][carrierId];
+                    global[carrierId].total +=
+                        localAccumulators[thread]
+                        [carrierId]
+                        .total;
 
-                    // Sumar los datos al acumulador general
-                    global[carrierId].total += local.total;
-
-
-                    global[carrierId].delayed += local.delayed;
-
-
-                    global[carrierId].concurrentSum +=
-                        local.concurrentSum;
-
-
-                    global[carrierId].planeAgeSum +=
-                        local.planeAgeSum;
-
-
-                    global[carrierId].validPlaneAgeCount +=
-                        local.validPlaneAgeCount;
-
-
-                    global[carrierId].temperatureSum +=
-                        local.temperatureSum;
-
-
-                    global[carrierId].windSum +=
-                        local.windSum;
+                    global[carrierId].delayed +=
+                        localAccumulators[thread]
+                        [carrierId]
+                        .delayed;
                 }
             }
 
-            // Cantidad mínima de vuelos para considerar que la información es suficiente
-            int minimumVolume = 30;
+            const int minimumVolume = 30;
 
-            // Crear resultados finales
-            // La posición del vector coincide con el ID de la aerolínea
-            std::vector<GroupResult> results(maxCarrier + 1);
+            std::vector<GroupResult> results;
 
-            // Crear el resultado de cada aerolínea
-            for (int carrierId = 0; carrierId <= maxCarrier; carrierId++)
+            // Construir resultados finales
+            for (int carrierId = 0;
+                carrierId <= maxCarrier;
+                carrierId++)
             {
-                // Obtener los datos acumulados de la aerolínea
-                GroupAccumulator accumulator = global[carrierId];
+                if (global[carrierId].total == 0)
+                {
+                    continue;
+                }
 
-
-
-                // Crear resultado que se va a guardar
                 GroupResult result;
 
-                // Guardar ID de la aerolínea
+                // Guardar ID
                 result.id = carrierId;
 
-                // Crear nombre de la aerolínea
-                if (accumulator.total == 0)
+                // Crear nombre de aerolínea
+                result.name =
+                    "Aerolinea " +
+                    std::to_string(carrierId);
+
+                // Advertencia de bajo volumen
+                if (global[carrierId].total <
+                    minimumVolume)
                 {
-                    // Si no tiene vuelos se deja vacío
-                    result.name = "";
-                }
-                else
-                {
-                    // Nombre temporal usando el ID
-                    result.name =
-                        "Aerolinea " + std::to_string(carrierId);
-
-
-
-                    // Avisar si tiene pocos vuelos
-                    if (accumulator.total < minimumVolume)
-                    {
-                        result.name += " (poco volumen)";
-                    }
+                    result.name +=
+                        " (poco volumen)";
                 }
 
-                // Guardar cantidad de vuelos
-                result.totalFlights = accumulator.total;
+                // Guardar estadísticas básicas
+                result.totalFlights =
+                    global[carrierId].total;
 
+                result.delayedFlights =
+                    global[carrierId].delayed;
 
-                // Guardar cantidad de retrasos
-                result.delayedFlights = accumulator.delayed;
+                // Calcular porcentaje de retrasos
+                result.delayRatePercent =
+                    (global[carrierId].delayed * 100.0)
+                    /
+                    global[carrierId].total;
 
-                // Calcular porcentaje de retrasos y promedios
-                if (accumulator.total > 0)
-                {
-                    result.delayRatePercent =
-                        (accumulator.delayed * 100.0) /
-                        accumulator.total;
-
-
-
-                    result.averageConcurrentFlights =
-                        accumulator.concurrentSum /
-                        accumulator.total;
-
-
-
-                    result.averageTemperature =
-                        accumulator.temperatureSum /
-                        accumulator.total;
-
-
-
-                    result.averageWindSpeed =
-                        accumulator.windSum /
-                        accumulator.total;
-                }
-
-                else
-                {
-                    // Si no existen vuelos se colocan valores en cero
-                    result.delayRatePercent = 0;
-
-
-                    result.averageConcurrentFlights = 0;
-
-
-                    result.averageTemperature = 0;
-
-
-                    result.averageWindSpeed = 0;
-                }
-
-                // Calcular edad promedio de los aviones
-                if (accumulator.validPlaneAgeCount > 0)
-                {
-                    result.averagePlaneAge =
-                        accumulator.planeAgeSum /
-                        accumulator.validPlaneAgeCount;
-                }
-                else
-                {
-                    result.averagePlaneAge = 0;
-                }
-
-                // Guardar resultado usando el ID como posición
-                results[carrierId] = result;
+                results.push_back(result);
             }
 
-            // Regresar resultados finales
+            // Crear ranking ordenado por tasa de retraso
+            std::sort(
+                results.begin(),
+                results.end(),
+                [](const GroupResult& a,
+                    const GroupResult& b)
+                {
+                    return a.delayRatePercent >
+                        b.delayRatePercent;
+                });
+
+            // Regresar ranking final
             return results;
         }
 
