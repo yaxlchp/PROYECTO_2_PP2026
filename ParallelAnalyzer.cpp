@@ -21,7 +21,7 @@ namespace
         double windSum;
 
         double precipitationSum; //Variable agregada para el promedio de precipitacion de vuelos astrason y en timepo.
-        double distanceGrupoSum; //Varibale para tomar la distancia de vuelo promedio de lo vuelos.
+        double distanceGroupSum; //Varibale para tomar la distancia de vuelo promedio de lo vuelos.
 
         GroupAccumulator()
             : total(0),
@@ -32,7 +32,7 @@ namespace
             temperatureSum(0.0),
             windSum(0.0),
             precipitationSum(0.0), //Promedio de precipitaciones
-            distanceGrupoSum(0.0) //Promedio de distancia
+            distanceGroupSum(0.0) //Promedio de distancia
         {
         }
     };
