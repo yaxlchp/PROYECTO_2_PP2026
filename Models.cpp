@@ -2,7 +2,7 @@
 
 namespace airport
 {
-    FlightRecord()
+    FlightRecord::FlightRecord()
         : month(0),
         dayOfWeek(0),
         delayedOver15Minutes(0),
@@ -23,7 +23,7 @@ namespace airport
     {
     }
 
-    GeneralStatistics()
+    GeneralStatistics::GeneralStatistics()
         : totalFlights(0),
         delayedFlights(0),
         delayRatePercent(0.0),
@@ -40,7 +40,7 @@ namespace airport
     {
     }
 
-    GroupResult()
+    GroupResult:: GroupResult()
         : id(0),
         name(""),
         totalFlights(0),
@@ -53,7 +53,7 @@ namespace airport
     {
     }
 
-    BinaryComparison()
+    BinaryComparison::BinaryComparison()
         : factorName(""),
         delayedCount(0),
         onTimeCount(0),
@@ -63,7 +63,7 @@ namespace airport
     {
     }
 
-    BenchmarkResult()
+    BenchmarkResult::BenchmarkResult()
         : sequentialSeconds(0.0),
         parallelSeconds(0.0),
         speedup(0.0),

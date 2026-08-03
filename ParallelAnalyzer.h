@@ -36,7 +36,8 @@ namespace airport
             std::vector<GroupResult> calculateByAirport(
                 const FlightDataSet& dataSet) const;
 
-            FactorAnalysis calculateFactorAnalysis() const;
+            FactorAnalysis calculateFactorAnalysis(
+                const FlightDataSet& dataSet) const;
 
         protected:
             int threadCount;

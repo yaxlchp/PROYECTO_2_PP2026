@@ -221,7 +221,7 @@ namespace airport
             // En el archivo ParallelAnalyzer.h esta funcion
             // no recibe el dataset.
             FactorAnalysis result =
-                analyzer.calculateFactorAnalysis();
+                analyzer.calculateFactorAnalysis(dataSet);
 
             benchmarkGuard =
                 result.concurrentFlights.delayedCount +
