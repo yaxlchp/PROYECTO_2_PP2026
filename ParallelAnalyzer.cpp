@@ -251,7 +251,190 @@ namespace airport
         std::vector<GroupResult> ParallelAnalyzer::calculateByDepartureBlock(
             const FlightDataSet& dataSet) const
         {
-			return std::vector<GroupResult>(dataSet.getMaxDepartureBlockId() + 1);
+            const std::vector<FlightRecord>& records =
+                dataSet.getRecords();
+
+            if (records.empty())
+            {
+                return std::vector<GroupResult>();
+            }
+
+            int maxBlockId =
+                dataSet.getMaxDepartureBlockId();
+
+            int numberOfThreads;
+
+            if (threadCount > 0)
+            {
+                numberOfThreads = threadCount;
+            }
+            else
+            {
+                numberOfThreads =
+                    omp_get_max_threads();
+            }
+
+            if (numberOfThreads < 1)
+            {
+                numberOfThreads = 1;
+            }
+
+            std::vector<std::vector<GroupAccumulator> >
+                localAccumulators(
+                    numberOfThreads,
+                    std::vector<GroupAccumulator>(
+                        maxBlockId + 1));
+
+#pragma omp parallel num_threads(numberOfThreads)
+            {
+                int threadId =
+                    omp_get_thread_num();
+
+                std::vector<GroupAccumulator>& local =
+                    localAccumulators[threadId];
+
+#pragma omp for schedule(static)
+                for (int i = 0;
+                    i < (int)records.size();
+                    i++)
+                {
+                    const FlightRecord& record =
+                        records[i];
+
+                    int blockId =
+                        record.departureTimeBlockId;
+
+                    if (blockId < 0 ||
+                        blockId > maxBlockId)
+                    {
+                        continue;
+                    }
+
+                    GroupAccumulator& accumulator =
+                        local[blockId];
+
+                    accumulator.total++;
+
+                    if (record.delayedOver15Minutes == 1)
+                    {
+                        accumulator.delayed++;
+                    }
+
+                    accumulator.concurrentSum +=
+                        record.concurrentFlights;
+
+                    accumulator.temperatureSum +=
+                        record.maximumTemperature;
+
+                    accumulator.windSum +=
+                        record.averageWindSpeed;
+
+                    if (record.planeAge >= 0)
+                    {
+                        accumulator.planeAgeSum +=
+                            record.planeAge;
+
+                        accumulator.validPlaneAgeCount++;
+                    }
+                }
+            }
+
+            std::vector<GroupAccumulator> accumulators(
+                maxBlockId + 1);
+
+            for (int threadId = 0;
+                threadId < numberOfThreads;
+                threadId++)
+            {
+                for (int blockId = 0;
+                    blockId <= maxBlockId;
+                    blockId++)
+                {
+                    const GroupAccumulator& source =
+                        localAccumulators[threadId][blockId];
+
+                    GroupAccumulator& destination =
+                        accumulators[blockId];
+
+                    destination.total +=
+                        source.total;
+
+                    destination.delayed +=
+                        source.delayed;
+
+                    destination.concurrentSum +=
+                        source.concurrentSum;
+
+                    destination.planeAgeSum +=
+                        source.planeAgeSum;
+
+                    destination.validPlaneAgeCount +=
+                        source.validPlaneAgeCount;
+
+                    destination.temperatureSum +=
+                        source.temperatureSum;
+
+                    destination.windSum +=
+                        source.windSum;
+                }
+            }
+
+            std::vector<GroupResult> results;
+
+            for (int blockId = 0;
+                blockId <= maxBlockId;
+                blockId++)
+            {
+                const GroupAccumulator& accumulator =
+                    accumulators[blockId];
+
+                if (accumulator.total == 0)
+                {
+                    continue;
+                }
+
+                GroupResult result;
+
+                result.id = blockId;
+                result.name = "";
+
+                result.totalFlights =
+                    accumulator.total;
+
+                result.delayedFlights =
+                    accumulator.delayed;
+
+                result.delayRatePercent =
+                    ((double)accumulator.delayed * 100.0) /
+                    (double)accumulator.total;
+
+                result.averageConcurrentFlights =
+                    accumulator.concurrentSum /
+                    (double)accumulator.total;
+
+                if (accumulator.validPlaneAgeCount > 0)
+                {
+                    result.averagePlaneAge =
+                        accumulator.planeAgeSum /
+                        (double)accumulator.validPlaneAgeCount;
+                }
+                else
+                {
+                    result.averagePlaneAge = 0.0;
+                }
+
+                result.averageTemperature =
+                    accumulator.temperatureSum /
+                    (double)accumulator.total;
+
+                result.averageWindSpeed =
+                    accumulator.windSum /
+                    (double)accumulator.total;
+
+                results.push_back(result);
+            }
+
+            return results;
         }
 
         std::vector<GroupResult> ParallelAnalyzer::calculateByCarrier(
