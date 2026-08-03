@@ -2,6 +2,25 @@
 
 namespace airport
 {
+/*
+      Inicializa todos los atributos del registro de un vuelo con valores
+      predeterminados. Los campos enteros se inicializan en 0 y las variables
+      climáticas en 0.0f. Esto garantiza que el objeto tenga un estado válido
+      antes de cargar información desde un archivo o una base de datos.
+     
+      Validaciones sugeridas (assert):
+      - assert(month >= 1 && month <= 12);
+           Verifica que el mes sea válido una vez que se carguen datos reales.
+     
+      - assert(dayOfWeek >= 1 && dayOfWeek <= 7);
+           Comprueba que el día de la semana corresponda a un valor permitido.
+     
+      - assert(numberOfSeats >= 0);
+           Un avión no puede tener una cantidad negativa de asientos.
+     
+      - assert(planeAge >= 0);
+           La antigüedad del avión nunca debe ser negativa.
+     */
     FlightRecord::FlightRecord()
         : month(0),
         dayOfWeek(0),
@@ -22,7 +41,25 @@ namespace airport
         averageWindSpeed(0.0f)
     {
     }
-
+/*
+     
+      Inicializa todas las estadísticas generales en cero.
+      Los valores mínimo y máximo de la antigüedad de los aviones se
+      inicializan en -1 para indicar que todavía no existen datos
+      procesados.
+     
+      Validaciones sugeridas (assert):
+      - assert(totalFlights >= delayedFlights);
+           La cantidad de vuelos retrasados nunca puede ser mayor
+           que el total de vuelos.
+     
+      - assert(delayRatePercent >= 0.0 && delayRatePercent <= 100.0);
+           El porcentaje de retrasos siempre debe estar entre 0 % y 100 %.
+     
+      - assert(minimumPlaneAge == -1 || minimumPlaneAge <= maximumPlaneAge);
+           Si existen datos, la antigüedad mínima debe ser menor o igual
+           que la máxima.
+     */
     GeneralStatistics::GeneralStatistics()
         : totalFlights(0),
         delayedFlights(0),
@@ -39,7 +76,18 @@ namespace airport
         maximumPlaneAge(-1)
     {
     }
-
+/*
+      Inicializa la información estadística correspondiente a un grupo
+      de vuelos. El nombre se inicializa vacío y todos los indicadores
+      numéricos comienzan en cero.
+     
+      Validaciones sugeridas (assert):
+      - assert(totalFlights >= delayedFlights);
+           Los vuelos retrasados no pueden superar al total de vuelos.
+     
+      - assert(delayRatePercent >= 0.0 && delayRatePercent <= 100.0);
+           El porcentaje de retrasos debe mantenerse dentro de un rango válido.
+     */
     GroupResult:: GroupResult()
         : id(0),
         name(""),
@@ -53,6 +101,18 @@ namespace airport
     {
     }
 
+    /*
+     
+      Inicializa los valores utilizados para comparar una característica
+      entre vuelos retrasados y vuelos puntuales.
+     
+      Validaciones sugeridas (assert):
+      - assert(delayedCount >= 0);
+           La cantidad de vuelos retrasados nunca debe ser negativa.
+     
+      - assert(onTimeCount >= 0);
+           La cantidad de vuelos puntuales tampoco puede ser negativa.
+     */
     BinaryComparison::BinaryComparison()
         : factorName(""),
         delayedCount(0),
@@ -62,6 +122,29 @@ namespace airport
         difference(0.0)
     {
     }
+/*
+    
+      Inicializa las métricas utilizadas para medir el rendimiento del
+      algoritmo en ejecución secuencial y paralela.
+      El número de hilos comienza en 1, ya que representa la ejecución
+      secuencial.
+     
+      Validaciones sugeridas (assert):
+      - assert(sequentialSeconds >= 0.0);
+           El tiempo de ejecución nunca puede ser negativo.
+     
+      - assert(parallelSeconds >= 0.0);
+           El tiempo de ejecución paralela tampoco puede ser negativo.
+     
+      - assert(speedup >= 0.0);
+           El speedup representa una razón de rendimiento y no debe ser negativo.
+     
+      - assert(efficiencyPercent >= 0.0 && efficiencyPercent <= 100.0);
+           La eficiencia se expresa como porcentaje y debe estar entre 0 % y 100 %.
+     
+      - assert(threads >= 1);
+           Debe existir al menos un hilo de ejecución.
+     */
 
     BenchmarkResult::BenchmarkResult()
         : sequentialSeconds(0.0),

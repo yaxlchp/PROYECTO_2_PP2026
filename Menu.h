@@ -53,7 +53,7 @@ namespace airport
             void printGroupedResultsTable(
                 const std::vector<airport::GroupResult>& results,
                 const std::string& title,
-                int maximumRows) const;
+                int maximumRows, bool useParallel) const;
 
             void printFactorAnalysisTable(
                 const airport::FactorAnalysis& result,
