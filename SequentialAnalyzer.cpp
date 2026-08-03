@@ -1,5 +1,8 @@
 #include "SequentialAnalyzer.h"
 
+#include <algorithm>
+#include <cassert>
+#include <limits>
 #include <vector>
 
 #include "Exceptions.h"
