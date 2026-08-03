@@ -245,7 +245,86 @@ namespace airport
         std::vector<GroupResult> ParallelAnalyzer::calculateByDayOfWeek(
             const FlightDataSet& dataSet) const
         {
-			return std::vector<GroupResult>(7);
+            std::vector<GroupResult> result_parallel(7);
+            std::vector<GroupAccumulator> accum_pa(7);
+
+            std::string dayName[7] =
+            {
+				"Monday", "Tuesday", "Wednesday", "Thursday",
+                "Friday", "Saturday","Sunday"
+            };
+
+
+            for (int i = 0; i < 7; i++)
+            {
+                result_parallel[i].name = dayName[i];
+            }
+
+            int n = dataSet.getRecordCount();
+            const std::vector<FlightRecord>& records = dataSet.getRecords();
+
+#pragma omp parallel
+            {
+                std::vector<GroupAccumulator> local_accum(12);
+#pragma omp for
+                for (int i = 0; i < n; i++)
+                {
+                    const FlightRecord& record = records[i];
+                    GroupAccumulator& day = local_accum[record.month - 1];
+
+                    day.total++;
+
+
+                    if (record.delayedOver15Minutes)
+                    {
+                        day.delayed++;
+                    }
+
+                    day.concurrentSum += record.concurrentFlights;
+
+
+                    if (record.planeAge >= 0 && record.planeAge <= 100)
+                    {
+                        day.planeAgeSum += record.planeAge;
+                        day.validPlaneAgeCount++;
+                    }
+                    day.temperatureSum += record.maximumTemperature;
+                    day.windSum += record.averageWindSpeed;
+                }
+
+#pragma omp critical
+                {
+                    for (int i = 0; i < 7; i++)
+                    {
+                        accum_pa[i].total += local_accum[i].total;
+                        accum_pa[i].delayed += local_accum[i].delayed;
+                        accum_pa[i].concurrentSum += local_accum[i].concurrentSum;
+                        accum_pa[i].planeAgeSum += local_accum[i].planeAgeSum;
+                        accum_pa[i].validPlaneAgeCount += local_accum[i].validPlaneAgeCount;
+                        accum_pa[i].temperatureSum += local_accum[i].temperatureSum;
+                        accum_pa[i].windSum += local_accum[i].windSum;
+                    }
+                }
+            }
+
+            for (int i = 0; i < 7; i++)
+            {
+                result_parallel[i].id = i + 1;
+                result_parallel[i].totalFlights = accum_pa[i].total;
+                result_parallel[i].delayedFlights = accum_pa[i].delayed;
+                
+                result_parallel[i].delayRatePercent = 100.0 * accum_pa[i].delayed / accum_pa[i].total;
+                result_parallel[i].averageConcurrentFlights = accum_pa[i].concurrentSum / accum_pa[i].total;
+                if (accum_pa[i].validPlaneAgeCount > 0)
+                {
+                    result_parallel[i].averagePlaneAge = accum_pa[i].planeAgeSum / accum_pa[i].validPlaneAgeCount;
+                }
+                result_parallel[i].averageTemperature = accum_pa[i].temperatureSum / accum_pa[i].total;
+                result_parallel[i].averageWindSpeed = accum_pa[i].windSum / accum_pa[i].total;
+     
+            }
+
+            return result_parallel;
         }
 
         std::vector<GroupResult> ParallelAnalyzer::calculateByDepartureBlock(
