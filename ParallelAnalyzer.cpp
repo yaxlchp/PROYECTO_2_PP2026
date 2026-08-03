@@ -20,6 +20,9 @@ namespace
         double temperatureSum;
         double windSum;
 
+        double precipitationSum; //Variable agregada para el promedio de precipitacion de vuelos astrason y en timepo.
+        double distanceGrupoSum; //Varibale para tomar la distancia de vuelo promedio de lo vuelos.
+
         GroupAccumulator()
             : total(0),
             delayed(0),
@@ -27,7 +30,9 @@ namespace
             planeAgeSum(0.0),
             validPlaneAgeCount(0),
             temperatureSum(0.0),
-            windSum(0.0)
+            windSum(0.0),
+            precipitationSum(0.0), //Promedio de precipitaciones
+            distanceGrupoSum(0.0) //Promedio de distancia
         {
         }
     };
@@ -436,10 +441,106 @@ namespace airport
 			return std::vector<GroupResult>(dataSet.getMaxAirportId() + 1);
         }
 
-        FactorAnalysis ParallelAnalyzer::calculateFactorAnalysis(
-            const FlightDataSet& dataSet) const
+        FactorAnalysis ParallelAnalyzer::calculateFactorAnalysis(const FlightDataSet& dataSet) const
         {
-			return FactorAnalysis();
+            //Lo que se plantea en este método es tomar absolutamente todos los datos y comparar aquellos que estan atrasados. 
+            // Para eso existen las estructuras de FactorAnalysis y BinaryComparision, pues se revisan cada uno de los factores y se "guarda" cuál de todos los factores es aquel que más atrasos tiene.
+       
+            //Generamos la estructura que va a devolver la función.
+            FactorAnalysis Resultado;
+
+            //Hay que recordadr que ya existe una función que toma los datos de los .csv, por lo que solo hay que preocuparse por ir revisando todos los datos.
+            //El método se llama " getRecords() ", que proviene de la clase " FlightDataSet " y trabaja con un arreglo dinámico de estructuras " FlightRecord ".
+            //FlightDataSet hace referencia a los archivos .csv, mientras que FlightRecord toma los datos de cada vuelo.
+
+            //
+            const std::vector<FlightRecord>& Registros = dataSet.getRecords();
+            int TotalDeRegistros = static_cast<int>(Registros.size());
+
+            Resultado.concurrentFlights.factorName = "Vuelos concurridos";
+            Resultado.planeAge.factorName = "Edad del avión";
+            Resultado.precipitation.factorName = "Precipitación";
+            Resultado.windSpeed.factorName = "Velocidad del viento";
+            Resultado.temperature.factorName = "Temperatura";
+            Resultado.distanceGroup.factorName = "Distacia de vuelo";
+
+            GroupAccumulator Grupo_Atrasado;
+            GroupAccumulator Grupo_EnTiempo;
+
+            #pragma omp parallel for shared(Grupo_Atrasado,Grupo_EnTiempo,Registros) /*reduction(+: Grupo_Atrasado.total, Grupo_Atrasado.concurentSum, Grupo_Atrasado.temperatureSum, Grupo_Atrasado.windSum, Grupo_Atrasado.planeAgeSum, \
+            Grupo_Atrasado.precipitationSum, Grupo_Atrasado.planeSum, Grupo_EnTiempo.total, Grupo_EnTiempo.concurrentSum, Grupo_EnTiempo.temperatureSum, Grupo_EnTiempo.windSum, \
+            Grupo_EnTiempo.planeAgeSum, Grupo_EnTiempo.precipitationSum, Grupo_EnTiempo.planeAgeSum )*/
+                for (int i = 0; i < TotalDeRegistros; i++)
+                {
+                    const FlightRecord& Vuelo = Registros[i];
+
+                    if (Vuelo.delayedOver15Minutes == 1)
+                    {
+                        #pragma omp critical 
+                        {
+                            Grupo_Atrasado.total++;
+                            Grupo_Atrasado.concurrentSum += Vuelo.concurrentFlights;
+                            Grupo_Atrasado.temperatureSum += Vuelo.maximumTemperature;
+                            Grupo_Atrasado.windSum += Vuelo.averageWindSpeed;
+                            Grupo_Atrasado.planeAgeSum += Vuelo.planeAge;
+                            Grupo_Atrasado.precipitationSum += Vuelo.precipitation;
+                            Grupo_Atrasado.distanceGroupSum += Vuelo.distanceGroup; 
+
+                            if (Vuelo.planeAge >= 25)
+                            {
+                                Grupo_Atrasado.planeAgeSum += Vuelo.planeAge;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        #pragma omp critical 
+                        {
+                            Grupo_EnTiempo.total++;
+                            Grupo_EnTiempo.concurrentSum += Vuelo.concurrentFlights;
+                            Grupo_EnTiempo.temperatureSum += Vuelo.maximumTemperature;
+                            Grupo_EnTiempo.windSum += Vuelo.averageWindSpeed;
+                            Grupo_EnTiempo.planeAgeSum += Vuelo.planeAge;
+                            Grupo_EnTiempo.precipitationSum += Vuelo.precipitation;
+                            Grupo_EnTiempo.distanceGroupSum += Vuelo.distanceGroup;
+
+                            if (Vuelo.planeAge >= 0 && Vuelo.planeAge < 25)
+                            {
+                                Grupo_EnTiempo.planeAgeSum += Vuelo.planeAge;
+                            }
+                        }
+                    }
+                }
+
+            //Se asignan la cantidad de aviones atrasados en todos los atributos de la estructur de FactorAnalysis
+            Resultado.concurrentFlights.delayedCount = Resultado.distanceGroup.delayedCount = Resultado.planeAge.delayedCount = Resultado.precipitation.delayedCount =
+                Resultado.temperature.delayedCount = Resultado.windSpeed.delayedCount = Grupo_Atrasado.total;
+
+            Resultado.concurrentFlights.onTimeCount = Resultado.distanceGroup.onTimeCount = Resultado.planeAge.onTimeCount = Resultado.precipitation.onTimeCount =
+                Resultado.temperature.onTimeCount = Resultado.windSpeed.onTimeCount = Grupo_EnTiempo.total;
+
+           // Se consigen los promedios de todos los vuelos atrasados
+            if (Grupo_Atrasado.total > 0)
+            {
+                Resultado.concurrentFlights.delayedAverage = Grupo_Atrasado.concurrentSum / Resultado.concurrentFlights.delayedCount;
+                Resultado.planeAge.delayedAverage = Grupo_Atrasado.planeAgeSum / Resultado.planeAge.delayedCount;
+                Resultado.precipitation.delayedAverage = Grupo_Atrasado.precipitationSum / Resultado.precipitation.delayedCount;
+                Resultado.windSpeed.delayedAverage = Grupo_Atrasado.windSum / Resultado.windSpeed.delayedCount;
+                Resultado.temperature.delayedAverage = Grupo_Atrasado.temperatureSum / Resultado.temperature.delayedCount;
+                Resultado.distanceGroup.delayedAverage = Grupo_Atrasado.distanceGroupSum / Resultado.distanceGroup.delayedCount;
+            }
+            // Se consigen los promedios de todos los vuelos en tiempo
+            if (Grupo_EnTiempo.total > 0)
+            {
+                Resultado.concurrentFlights.onTimeAverage = Grupo_EnTiempo.concurrentSum / Resultado.concurrentFlights.onTimeCount;
+                Resultado.planeAge.onTimeAverage = Grupo_EnTiempo.planeAgeSum / Resultado.planeAge.onTimeCount;
+                Resultado.precipitation.onTimeAverage = Grupo_EnTiempo.precipitationSum / Resultado.precipitation.onTimeCount;
+                Resultado.windSpeed.onTimeAverage = Grupo_EnTiempo.windSum / Resultado.windSpeed.onTimeCount;
+                Resultado.temperature.onTimeAverage = Grupo_EnTiempo.temperatureSum / Resultado.temperature.onTimeCount;
+                Resultado.distanceGroup.onTimeAverage = Grupo_EnTiempo.distanceGroupSum / Resultado.distanceGroup.onTimeCount;
+            }
+
+            return Resultado;
         }
     }
 
