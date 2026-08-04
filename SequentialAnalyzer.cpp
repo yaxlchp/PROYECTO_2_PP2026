@@ -31,6 +31,46 @@ namespace
         }
     };
 
+    // construir los resultados de los aeropuertos a partir de los acumuladores
+    std::vector<airport::GroupResult> buildAirportResults(
+        const std::vector<GroupAccumulator>& accumulators)
+    {
+        std::vector<airport::GroupResult> results(accumulators.size());
+
+        for (std::size_t index = 0; index < accumulators.size(); ++index)
+        {
+            const GroupAccumulator& accumulator = accumulators[index];
+            airport::GroupResult& result = results[index];
+
+            result.id = static_cast<int>(index);
+            result.totalFlights = accumulator.total;
+            result.delayedFlights = accumulator.delayed;
+
+            if (accumulator.total > 0)
+            {
+                result.delayRatePercent =
+                    static_cast<double>(accumulator.delayed) * 100.0 /
+                    static_cast<double>(accumulator.total);
+                result.averageConcurrentFlights =
+                    accumulator.concurrentSum /
+                    static_cast<double>(accumulator.total);
+                result.averagePlaneAge =
+                    accumulator.validPlaneAgeCount > 0
+                    ? accumulator.planeAgeSum /
+                        static_cast<double>(accumulator.validPlaneAgeCount)
+                    : 0.0;
+                result.averageTemperature =
+                    accumulator.temperatureSum /
+                    static_cast<double>(accumulator.total);
+                result.averageWindSpeed =
+                    accumulator.windSum /
+                    static_cast<double>(accumulator.total);
+            }
+        }
+
+        return results;
+    }
+
 }
 
 
@@ -46,47 +86,41 @@ namespace airport
         {
         }
 
-        GeneralStatistics SequentialAnalyzer::calculateGeneralStatistics(
-            const FlightDataSet& dataSet) const
-        {
-			return GeneralStatistics();
-        }
-
-        std::vector<GroupResult> SequentialAnalyzer::calculateByMonth(
-            const FlightDataSet& dataSet) const
-        {
-			return std::vector<GroupResult>(12);
-        }
-
-        std::vector<GroupResult> SequentialAnalyzer::calculateByDayOfWeek(
-            const FlightDataSet& dataSet) const
-        {
-			return std::vector<GroupResult>(7);
-        }
-
-        std::vector<GroupResult> SequentialAnalyzer::calculateByDepartureBlock(
-            const FlightDataSet& dataSet) const
-        {
-			return std::vector<GroupResult>(dataSet.getMaxDepartureBlockId() + 1);
-        }
-
-        std::vector<GroupResult> SequentialAnalyzer::calculateByCarrier(
-            const FlightDataSet& dataSet) const
-        {
-			return std::vector<GroupResult>(dataSet.getMaxCarrierId() + 1);
-        }
-
         std::vector<GroupResult> SequentialAnalyzer::calculateByAirport(
             const FlightDataSet& dataSet) const
         {
-			return std::vector<GroupResult>(dataSet.getMaxAirportId() + 1);
-        }
+            const std::vector<FlightRecord>& records = dataSet.getRecords();
+            const int groupCount = dataSet.getMaxAirportId() + 1;
 
+            if (groupCount <= 0)
+            {
+                return std::vector<GroupResult>();
+            }
 
-        FactorAnalysis SequentialAnalyzer::calculateFactorAnalysis(
-            const FlightDataSet& dataSet) const
-        {
-			return FactorAnalysis();
+            std::vector<GroupAccumulator> accumulators(
+                static_cast<std::size_t>(groupCount));
+
+            for (const FlightRecord& record : records)
+            {
+                assert(record.departingAirportId >= 0);
+                assert(record.departingAirportId < groupCount);
+
+                GroupAccumulator& accumulator = accumulators[
+                    static_cast<std::size_t>(record.departingAirportId)];
+
+                accumulator.total++;
+                accumulator.delayed += record.delayedOver15Minutes;
+                accumulator.concurrentSum += record.concurrentFlights;
+                accumulator.planeAgeSum += record.planeAge;
+                if (record.planeAge >= 0)
+                {
+                    accumulator.validPlaneAgeCount++;
+                }
+                accumulator.temperatureSum += record.maximumTemperature;
+                accumulator.windSum += record.averageWindSpeed;
+            }
+
+            return buildAirportResults(accumulators);
         }
 
     }
