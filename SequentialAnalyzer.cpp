@@ -538,8 +538,88 @@ namespace airport
         std::vector<GroupResult> SequentialAnalyzer::calculateByAirport(
             const FlightDataSet& dataSet) const
         {
-            return std::vector<GroupResult>(
-                dataSet.getMaxAirportId() + 1);
+            const std::vector<FlightRecord>& records = dataSet.getRecords();
+            const int maxAirportId = dataSet.getMaxAirportId();
+
+            std::vector<GroupResult> result(maxAirportId + 1);
+
+            if (maxAirportId < 0)
+            {
+                return std::vector<GroupResult>();
+            }
+
+            std::vector<GroupAccumulator> accumulators(maxAirportId + 1);
+
+            for (int i = 0; i < static_cast<int>(records.size()); ++i)
+            {
+                const FlightRecord& record = records[static_cast<std::size_t>(i)];
+                const int airportId = record.departingAirportId;
+
+                if (airportId < 0 || airportId > maxAirportId)
+                {
+                    continue;
+                }
+
+                GroupAccumulator& accumulator = accumulators[airportId];
+
+                accumulator.total++;
+
+                if (record.delayedOver15Minutes == 1)
+                {
+                    accumulator.delayed++;
+                }
+
+                accumulator.concurrentSum += record.concurrentFlights;
+                accumulator.planeAgeSum += record.planeAge;
+                accumulator.temperatureSum += record.maximumTemperature;
+                accumulator.windSum += record.averageWindSpeed;
+
+                if (record.planeAge >= 0)
+                {
+                    accumulator.validPlaneAgeCount++;
+                }
+            }
+
+            for (int airportId = 0; airportId <= maxAirportId; ++airportId)
+            {
+                const GroupAccumulator& accumulator = accumulators[airportId];
+
+                if (accumulator.total == 0)
+                {
+                    continue;
+                }
+
+                result[airportId].id = airportId;
+                result[airportId].name = "";
+                result[airportId].totalFlights = accumulator.total;
+                result[airportId].delayedFlights = accumulator.delayed;
+                result[airportId].delayRatePercent =
+                    (static_cast<double>(accumulator.delayed) * 100.0) /
+                    static_cast<double>(accumulator.total);
+                result[airportId].averageConcurrentFlights =
+                    accumulator.concurrentSum /
+                    static_cast<double>(accumulator.total);
+
+                if (accumulator.validPlaneAgeCount > 0)
+                {
+                    result[airportId].averagePlaneAge =
+                        accumulator.planeAgeSum /
+                        static_cast<double>(accumulator.validPlaneAgeCount);
+                }
+                else
+                {
+                    result[airportId].averagePlaneAge = 0.0;
+                }
+
+                result[airportId].averageTemperature =
+                    accumulator.temperatureSum /
+                    static_cast<double>(accumulator.total);
+                result[airportId].averageWindSpeed =
+                    accumulator.windSum /
+                    static_cast<double>(accumulator.total);
+            }
+
+            return result;
         }
 
         FactorAnalysis SequentialAnalyzer::calculateFactorAnalysis(
