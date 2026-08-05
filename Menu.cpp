@@ -47,6 +47,41 @@ namespace
         return option == 2;
     }
 
+    std::string extractName(
+        const std::string& completeLine)
+    {
+        std::size_t commaPosition =
+            completeLine.find(',');
+
+        if (commaPosition == std::string::npos)
+        {
+            return completeLine;
+        }
+
+        std::string name =
+            completeLine.substr(commaPosition + 1);
+
+        if (!name.empty() && name.back() == '\r')
+        {
+            name.pop_back();
+        }
+
+        if (name.size() >= 2 &&
+            name.front() == '"' &&
+            name.back() == '"')
+        {
+            name =
+                name.substr(
+                    1,
+                    name.size() - 2);
+        }
+
+        return name;
+    }
+
+
+
+
     /*
         Benchmark::run es protected en Benchmark.h.
 
@@ -185,6 +220,16 @@ namespace airport
         void Menu::executeAnalysis(int option)
         {
             bool useParallel = chooseParallel();
+            std::string versionTitle;
+
+            if (useParallel)
+            {
+                versionTitle = "PARALELA";
+            }
+            else
+            {
+                versionTitle = "SECUENCIAL";
+            }
 
             if (option == 1)
             {
@@ -203,10 +248,22 @@ namespace airport
                         calculateGeneralStatistics(*dataSet);
                 }
 
-                printGeneralStatisticsTable(
-                    result,
-                    "ESTADISTICAS GENERALES");
+                if (useParallel)
+                {
+                    printGeneralStatisticsTable(
+                        result,
+                        "ESTADISTICAS GENERALES\n Version paralela");
+                }
+                else
+                {
+                    printGeneralStatisticsTable(
+                        result,
+                        "ESTADISTICAS GENERALES\nVersion secuencial");
+                }
+
+                
             }
+
             else if (option >= 2 && option <= 6)
             {
                 std::vector<GroupResult> results;
@@ -243,6 +300,7 @@ namespace airport
                             parallelAnalyzer->
                             calculateByAirport(*dataSet);
                     }
+
                 }
                 else
                 {
@@ -303,11 +361,9 @@ namespace airport
                 {
                     title = "ANALISIS POR AEROPUERTO";
                 }
+               
 
-                printGroupedResultsTable(
-                    results,
-                    title,
-                    20);
+                printGroupedResultsTable(results,title,20,useParallel);
             }
             else if (option == 7)
             {
@@ -326,9 +382,19 @@ namespace airport
                         calculateFactorAnalysis(*dataSet);
                 }
 
-                printFactorAnalysisTable(
-                    result,
-                    "ANALISIS DE FACTORES");
+                if (useParallel)
+                {
+                    printFactorAnalysisTable(
+                        result,
+                        "ANALISIS DE FACTORES\nVersion paralela");
+                }
+                else
+                {
+                    printFactorAnalysisTable(
+                        result,
+                        "ANALISIS DE FACTORES\nVersion secuencial");
+                }
+
             }
         }
 
@@ -442,23 +508,32 @@ namespace airport
                         "Dia " +
                         std::to_string(results[i].id);
                 }
+                // Busca en el catalogo la linea correspondiente al ID.
+                // Se suma 1 porque la posicion 0 contiene el encabezado del CSV.
+                // Despues se extrae solamente el nombre para mostrarlo en la tabla.
                 else if (analysisType == 4)
                 {
+                    std::string completeLine =
+                        catalog->getDepartureBlockName(i + 1);
+
                     results[i].name =
-                        "Bloque " +
-                        std::to_string(results[i].id);
+                        extractName(completeLine);
                 }
                 else if (analysisType == 5)
                 {
+                    std::string completeLine =
+                        catalog->getCarrierName(i + 1);
+
                     results[i].name =
-                        "Aerolinea " +
-                        std::to_string(results[i].id);
+                        extractName(completeLine);
                 }
                 else if (analysisType == 6)
                 {
+                    std::string completeLine =
+                        catalog->getAirportName(i + 1);
+
                     results[i].name =
-                        "Aeropuerto " +
-                        std::to_string(results[i].id);
+                        extractName(completeLine);
                 }
             }
         }
@@ -562,17 +637,27 @@ namespace airport
         void Menu::printGroupedResultsTable(
             const std::vector<GroupResult>& results,
             const std::string& title,
-            int maximumRows) const
+            int maximumRows, bool useParallel) const
         {
             std::cout
                 << "\n"
                 << title
                 << "\n";
 
+            if (useParallel)
+            {
+                std::cout << "Version Paralela\n";
+            }
+            else
+            {
+                std::cout << "Version Secuencial\n";
+            }
+
+
             std::cout
-                << "+------+--------------------------+------------+------------+------------+\n"
-                << "| ID   | Nombre                   | Vuelos     | Retrasos   | Tasa (%)   |\n"
-                << "+------+--------------------------+------------+------------+------------+\n";
+                << "+------+----------------------------------------------+------------+------------+------------+\n"
+                << "| ID   | Nombre                                       | Vuelos     | Retrasos   | Tasa (%)   |\n"
+                << "+------+----------------------------------------------+------------+------------+------------+\n";
 
             int rowsToShow = maximumRows;
 
@@ -592,7 +677,7 @@ namespace airport
                     << std::left
                     << results[i].id
                     << " | "
-                    << std::setw(24)
+                    << std::setw(44)
                     << results[i].name
                     << " | "
                     << std::setw(10)
@@ -609,7 +694,7 @@ namespace airport
             }
 
             std::cout
-                << "+------+--------------------------+------------+------------+------------+\n";
+                << "+------+----------------------------------------------+------------+------------+------------+\n";
 
             if (rowsToShow <
                 static_cast<int>(results.size()))
